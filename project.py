@@ -2,7 +2,9 @@ import numpy as np
 from scipy import stats
 from math import factorial
 import matplotlib.pyplot as plt
+import pandas as pd
 import random
+import csv
 
 data = []
 with open("CleanedData.csv", "r") as file:
@@ -77,10 +79,9 @@ def calc_diff(a, b):
 print("Given this a student is in 7th grade, the probability of getting a satisfying grade without revision is", round(g7.count(0)/len(g7), 4))
 print("Compared to 8th grade, it is", round(g8.count(0)/len(g8), 4))
 mean7, mean8, diff_78 = calc_diff(g7, g8)
-# print("Mean revision times for 7th graders is", round(mean7, 4)) 
-# print("Mean revision times for 8th graders is", round(mean8, 4))
+print("Mean revision times for 7th graders is", round(mean7, 4)) 
+print("Mean revision times for 8th graders is", round(mean8, 4))
 print("Observed Difference is", round(diff_78, 4))
-print()
 
 def draw_sample(source, n):
     new = []
@@ -99,7 +100,8 @@ def p_value(a, b, diff):
             count += 1
     return count/10000
 
-#print("p-value for grade 7 to 8 is", p_value(g7, g8, diff_78))
+print("p-value for grade 7 to 8 is", p_value(g7, g8, diff_78))
+print()
 
 """
 Question 2: Will favorite project influence the probability of revision?
@@ -125,10 +127,10 @@ fav_rev, nfav_rev = calc_fav(fav)
 print("Given this a student's favorite project, the probability of getting a satisfying grade without revision is", round(fav_rev.count(0)/len(fav_rev), 4))
 print("Compared to non-favorite projects, it is", round(nfav_rev.count(0)/len(nfav_rev), 4))
 
-# meanf, mean_nf, diff_f = calc_diff(fav_rev, nfav_rev)
-# print("Mean for favorite and non-favorite projects revision are", round(meanf, 4), round(mean_nf,4))
-# print("Observed Difference is", round(diff_f, 4))
-#print("p-value for favorite and non-favorite projects revision is", p_value(fav_rev, nfav_rev, diff_f))
+meanf, mean_nf, diff_f = calc_diff(fav_rev, nfav_rev)
+print("Mean for favorite and non-favorite projects revision are", round(meanf, 4), round(mean_nf,4))
+print("Observed Difference is", round(diff_f, 4))
+print("p-value for favorite and non-favorite projects revision is", p_value(fav_rev, nfav_rev, diff_f))
 print()
 
 """
@@ -168,8 +170,8 @@ def p_experience(prev_b):
     for i in range(4):
         exp,n_exp = calc_prev(prev_b, i+1)
         mean_e, mean_ne, diff_exp = calc_diff(exp, n_exp)
-        #print("Observed Difference is", round(diff_exp, 4))
-        #print(f"p-value for experience and non-experience in project{i+1} revision is", p_value(exp, n_exp, diff_exp))
+        print("Observed Difference is", round(diff_exp, 4))
+        print(f"p-value for experience and non-experience in project{i+1} revision is", p_value(exp, n_exp, diff_exp))
         print()
         
 p_experience(prev_b)
@@ -185,7 +187,6 @@ sum_rev = []
 for i in rev:
     sum_rev += i
 mean_rev = np.mean(sum_rev)*4 
-print(mean_rev)
 
 #Find how many revisions I will expect to get for a week given n students enrolled next semester. 
 N = input("How many students enroll for next semester?")
@@ -202,11 +203,15 @@ print(f"Updated posterior belief of the probability of getting a satisfying grad
 # updated expected value how many submissions needed to get 4 successes for each student
 def B(a, b): 
     return factorial(a - 1) * factorial(b - 1) / factorial(a + b -1)
-# up_ep = B(160, fail+1)/B(161, fail+1)
-# exp = int(N) * 4  * (up_ep-1) # exclude successful submissions
-# print("Updated expected number of revisions for next semester is",round(exp, 2))
+up_ep = B(160, fail+1)/B(161, fail+1)
+exp = int(N) * 4  * (up_ep-1) # exclude successful submissions
+print("Updated expected number of revisions for next semester is",round(exp, 2))
+print()
 
-#Are student with more revisions correlate to better grades?
+"""
+Question 5: Are student with more revisions correlate to better grades or worse?
+"""
+
 def sum_each(data):
 # Sum each students' revisions and total grade
     new = []
@@ -214,14 +219,139 @@ def sum_each(data):
         new.append(np.sum(i))
     return new
     
-# rev_student = np.array(sum_each(rev))
-# scores_student = np.array(sum_each(scores))
-# #Printing the correlation coefficients:
-# x=np.corrcoef(rev_student, scores_student)
-# print(x)
-# #Do a linear regression and create a plot for visualization, modified from example from scipy library
-# result = stats.linregress(rev_student, scores_student)
-# plt.plot(rev_student, scores_student, 'o', label='original data')
-# plt.plot(rev_student, result.intercept + result.slope*rev_student, 'r', label='fitted line')
-# plt.legend()
-# plt.show()
+rev_student = np.array(sum_each(rev))
+scores_student = np.array(sum_each(scores))
+#Printing the correlation coefficients:
+x=np.corrcoef(rev_student, scores_student)
+print(x)
+#Do a linear regression and create a plot for visualization, modified from example from scipy library
+result = stats.linregress(rev_student, scores_student)
+plt.plot(rev_student, scores_student, 'o', label='original data')
+plt.plot(rev_student, result.intercept + result.slope*rev_student, 'r', label='fitted line')
+plt.legend()
+plt.show()
+
+"""
+Just curious
+Question 6: Given a student's prior experience, how accurate can I predict the favorite project with Naive Bayes?
+Credit: Most codes come from Pset 6 question 4
+"""
+def write_csv(filename, rows):
+    with open(filename, 'w') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(fields)
+        csvwriter.writerows(rows)
+
+fields = ["Scratch", "Turtle", "Python", "Roblox", "HTML", "Is Favorite"]
+#write data to csv
+for proj in ["1", "2", "3", "4", "Final"]:
+    train = []
+    test = []
+    all_fav = []
+    for i in range(len(prev_b)):     
+        pre = list(prev_b[i])
+        if proj in fav[i]:
+            pre.append("1")
+        else:
+            pre.append("0")
+        all_fav.append(pre)
+    #randomly pick 8 people to be in the test group
+    test = []
+    for i in range(8):
+        choice = random.choice(all_fav)
+        all_fav.remove(choice)
+        test.append(choice)
+
+    write_csv(f"Project{proj}-train.csv", all_fav)
+    write_csv(f"Project{proj}-test.csv", test)
+    
+#Following are almost the same as my answer for Pset6 question 4 to operate Naive Bayes
+class NaiveBayes:
+
+    def __init__(self, dataset_name):
+        '''
+        Configures the classifier so that it's able to train itself using the
+        named dataset and ultimately make predictions.
+        '''
+        self.dataset_name = dataset_name
+        self.label_counts = [0, 0]
+        self.feature_counts = {}
+        
+    def train(self):
+        # Train classifier by compiling a collection of label
+        # counts and feature counts.
+        grid = pd.read_csv(self.dataset_name + "-train.csv").to_numpy()
+        train_features = grid[:,:-1]
+        train_labels = grid[:, -1].T
+
+        count0, count1 = 0, 0
+        d = {}
+        l = len(train_features[0])
+
+        for i in range(l):
+            d[f"feature{i}"] = [[0, 0],[0, 0]]
+        for i in range(len(train_features)):
+            for j in range(l):
+                if train_labels[i] == 0 and train_features[i][j] == 0:
+                    d[f"feature{j}"][0][0] += 1
+                    count0 += 1
+                elif train_labels[i] == 0 and train_features[i][j] == 1:
+                    d[f"feature{j}"][0][1] += 1
+                    count0 += 1
+                elif train_labels[i] == 1 and train_features[i][j] == 0:
+                    d[f"feature{j}"][1][0] += 1
+                    count1 += 1
+                else:
+                    d[f"feature{j}"][1][1] += 1
+                    count1 += 1
+        self.label_counts = [count0, count1]
+        self.feature_counts = d
+
+    def predict_one(self, features):
+        prediction = 0
+        p0, p1 = self.py0, self.py1
+        n_feature = len(self.feature_counts)
+        count_y0 = self.label_counts[0] + 2*n_feature
+        count_y1 = self.label_counts[1] + 2*n_feature
+       
+        for i in range(len(features)):
+            if features[i] == 0:
+                p0 *= (self.feature_counts[f"feature{i}"][0][0]+1)/(count_y0)
+                p1 *= (self.feature_counts[f"feature{i}"][1][0]+1)/(count_y1)
+            else:
+                p0 *= (self.feature_counts[f"feature{i}"][0][1]+1)/(count_y0)
+                p1 *= (self.feature_counts[f"feature{i}"][1][1]+1)/(count_y1)
+
+        if p1 > p0:
+            prediction = 1
+        
+        return prediction
+
+    def predict_all(self, rows):
+        preds = np.zeros(rows.shape[0], dtype=np.uint8)
+        # calculate p(Y =0) and p(Y =1) here
+        total_y= sum(self.label_counts)
+        self.py0 = self.label_counts[0]/total_y
+        self.py1 = self.label_counts[1]/total_y
+        self.x1 = []
+        for row_index, row in enumerate(rows):
+            preds[row_index] = self.predict_one(row)
+        return preds
+    
+    def accuracy(self, suffix):
+        grid = pd.read_csv(self.dataset_name + "-" + suffix + ".csv").to_numpy()
+        rows = grid[:, :-1]
+        actual_labels = grid[:,-1]
+        predicted_labels = self.predict_all(rows)
+        matches = 0
+        for i in range(len(predicted_labels)):
+            if predicted_labels[i] == actual_labels[i]:
+                matches += 1
+        return matches / len(predicted_labels)
+
+for dataset_name in ["Project1", "Project2", "Project3", "Project4", "Projectfinal"]:
+    classifier = NaiveBayes(dataset_name)
+    classifier.train()
+    print("Dataset name: {}, train accuracy: {:.3f}".format(dataset_name, classifier.accuracy("train")))
+    print("Dataset name: {}, test accuracy: {:.3f}".format(dataset_name, classifier.accuracy("test")))
+    print("For someone without any experience in all languages in this class, the prediction of choosing this project as favorite is", classifier.predict_one([0,0,0,0,0]))
